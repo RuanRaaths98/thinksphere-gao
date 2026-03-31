@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thinksphere — Generative Answer Optimization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080808;
+      --surface:   #0f0f0f;
+      --surface2:  #141414;
+      --border:    rgba(255,255,255,0.08);
+      --border2:   rgba(255,255,255,0.13);
+      --accent:    #C8410A;
+      --accent-hl: #e04f12;
+      --accent-dim:rgba(200,65,10,0.12);
+      --accent-glow:rgba(200,65,10,0.35);
+      --text:      #ffffff;
+      --text-muted:rgba(255,255,255,0.5);
+      --text-dim:  rgba(255,255,255,0.25);
+      --radius:    16px;
+      --radius-sm: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Sora', sans-serif;
+      font-weight: 300;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── CURSOR GLOW ─────────────────────────────────────────── */
+    #cursor-glow {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(200,65,10,0.18) 0%, transparent 70%);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      transition: opacity 0.3s;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 20px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    nav.scrolled {
+      background: rgba(8,8,8,0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .nav-logo img {
+      height: 36px;
+      width: auto;
+      display: block;
+    }
+
+    .nav-cta {
+      padding: 10px 22px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Sora', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .nav-cta:hover {
+      background: var(--accent-hl);
+      transform: translateY(-1px);
+    }
+
+    /* ── SECTIONS ────────────────────────────────────────────── */
+    section { position: relative; z-index: 1; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 48px;
+    }
+    @media (max-width: 768px) {
+      .container { padding: 0 24px; }
+      nav { padding: 16px 24px; }
+    }
+
+    /* ── REVEAL ANIMATION ────────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
+                  transform 0.75s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    /* ── LABEL ───────────────────────────────────────────────── */
+    .label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 6px 14px;
+      border: 1px solid rgba(200,65,10,0.3);
+      border-radius: 999px;
+      margin-bottom: 28px;
+    }
+    .label-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* HERO                                                        */
+    /* ─────────────────────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 140px 0 100px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Grid texture */
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    /* Orange orb */
+    #hero::after {
+      content: '';
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(200,65,10,0.22) 0%, transparent 65%);
+      top: -100px;
+      right: -200px;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+    }
+
+    .hero-h1 {
+      font-size: clamp(42px, 6vw, 80px);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -2.5px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 28px;
+    }
+    .hero-h1 .dim { color: var(--text-muted); }
+    .hero-h1 .accent { color: var(--accent); }
+
+    .hero-sub {
+      font-size: 18px;
+      font-weight: 300;
+      color: rgba(255,255,255,0.65);
+      max-width: 560px;
+      line-height: 1.65;
+      margin-bottom: 44px;
+    }
+    .hero-sub strong {
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .hero-actions { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Sora', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hl);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 40px rgba(200,65,10,0.4);
+    }
+    .btn-primary svg { flex-shrink: 0; }
+
+    .btn-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding-left: 2px;
+    }
+
+    /* AI platforms ticker */
+    .hero-ticker {
+      margin-top: 80px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ticker-label {
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .ticker-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      padding: 5px 14px;
+      border: 1px solid var(--border2);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.2px;
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* PROBLEM                                                     */
+    /* ─────────────────────────────────────────────────────────── */
+    #problem {
+      padding: 120px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+    }
+    @media (max-width: 768px) {
+      .problem-grid { grid-template-columns: 1fr; gap: 48px; }
+    }
+
+    .problem-left {}
+    .section-h2 {
+      font-size: clamp(30px, 4vw, 50px);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 24px;
+    }
+    .section-h2 .accent { color: var(--accent); }
+
+    .problem-body {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+    .problem-body p { margin-bottom: 18px; }
+    .problem-body strong { color: #fff; font-weight: 500; }
+    .problem-body .warning { color: var(--accent); font-weight: 600; font-size: 18px; }
+
+    .problem-right {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .journey-card {
+      padding: 18px 22px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .journey-card:hover { border-color: var(--border2); background: var(--surface2); }
+    .journey-card.old { opacity: 0.4; }
+    .journey-card.old .jc-icon { background: rgba(255,255,255,0.06); }
+    .journey-card.active { border-color: rgba(200,65,10,0.4); background: rgba(200,65,10,0.07); }
+    .journey-card.active .jc-icon { background: rgba(200,65,10,0.2); }
+
+    .jc-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .jc-text {}
+    .jc-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .jc-desc { font-size: 12px; color: var(--text-dim); }
+    .jc-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+    .badge-dead { background: rgba(255,255,255,0.07); color: var(--text-dim); }
+    .badge-now  { background: rgba(200,65,10,0.2); color: var(--accent); }
+
+    .invisible-callout {
+      margin-top: 20px;
+      padding: 24px;
+      border: 1px solid rgba(200,65,10,0.25);
+      border-radius: var(--radius);
+      background: rgba(200,65,10,0.05);
+      text-align: center;
+    }
+    .invisible-callout .big { font-size: 32px; font-weight: 700; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; letter-spacing: -1px; color: var(--accent); }
+    .invisible-callout .small { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* EDUCATION / GAO                                             */
+    /* ─────────────────────────────────────────────────────────── */
+    #gao {
+      padding: 120px 0;
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .gao-intro { max-width: 680px; margin-bottom: 64px; }
+    .gao-intro p { font-size: 17px; color: var(--text-muted); line-height: 1.75; margin-bottom: 16px; }
+    .gao-intro strong { color: #fff; font-weight: 500; }
+
+    .compare-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 640px) { .compare-cards { grid-template-columns: 1fr; } }
+
+    .compare-card {
+      padding: 36px 32px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .compare-card.new-way {
+      border-color: rgba(200,65,10,0.35);
+      background: rgba(200,65,10,0.06);
+    }
+    .compare-card.new-way::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .cc-tag {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      color: var(--text-dim);
+    }
+    .new-way .cc-tag { color: var(--accent); }
+    .cc-h3 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 12px;
+    }
+    .cc-body { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+    .cc-example {
+      margin-top: 24px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.04);
+      font-size: 13px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .new-way .cc-example { background: rgba(200,65,10,0.1); color: rgba(255,255,255,0.7); }
+    .cc-result {
+      margin-top: 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+    .new-way .cc-result { color: var(--accent); }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* HOW IT WORKS                                                */
+    /* ─────────────────────────────────────────────────────────── */
+    #how {
+      padding: 120px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .how-header { max-width: 600px; margin-bottom: 80px; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 768px) { .steps { grid-template-columns: 1fr; } }
+
+    .step {
+      padding: 40px 32px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .step:hover {
+      border-color: var(--border2);
+      transform: translateY(-4px);
+    }
+
+    .step-num {
+      font-size: 72px;
+      font-weight: 700;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      letter-spacing: -3px;
+      line-height: 1;
+      color: rgba(255,255,255,0.05);
+      position: absolute;
+      top: 20px; right: 24px;
+    }
+    .step-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(200,65,10,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      margin-bottom: 28px;
+    }
+    .step-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+      margin-bottom: 14px;
+    }
+    .step-body { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+    .step-timeframe {
+      margin-top: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+    .step-timeframe::before {
+      content: '';
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* connector line between steps (desktop) */
+    .steps-wrapper {
+      position: relative;
+    }
+    .step-connector {
+      display: none;
+    }
+    @media (min-width: 769px) {
+      .steps-wrapper .step-connector {
+        display: block;
+        position: absolute;
+        top: 44px;
+        left: calc(33.33% + 8px);
+        width: calc(33.33% - 16px);
+        height: 1px;
+        background: linear-gradient(90deg, var(--border2), transparent);
+      }
+      .steps-wrapper .step-connector:last-of-type {
+        left: calc(66.66% + 8px);
+        background: linear-gradient(90deg, transparent, var(--border2));
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* NIGHTMARE vs DREAM                                          */
+    /* ─────────────────────────────────────────────────────────── */
+    #transform {
+      padding: 120px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .transform-header { max-width: 600px; margin-bottom: 64px; }
+
+    .transform-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) { .transform-grid { grid-template-columns: 1fr; } }
+
+    .transform-side {
+      padding: 44px 40px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .transform-side.dream {
+      border-color: rgba(200,65,10,0.35);
+      background: rgba(200,65,10,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    .transform-side.dream::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .ts-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .nightmare .ts-label { color: rgba(255,255,255,0.25); }
+    .dream .ts-label { color: var(--accent); }
+
+    .ts-items { display: flex; flex-direction: column; gap: 16px; }
+    .ts-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 15px;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.5;
+    }
+    .ts-icon {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      margin-top: 1px;
+    }
+    .nightmare .ts-icon { background: rgba(255,255,255,0.07); color: var(--text-dim); }
+    .dream .ts-icon     { background: rgba(200,65,10,0.2); color: var(--accent); }
+    .dream .ts-item { color: rgba(255,255,255,0.85); }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* BOOKING MODAL                                               */
+    /* ─────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 48px 44px;
+      width: 100%;
+      max-width: 520px;
+      position: relative;
+      transform: translateY(20px) scale(0.97);
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+    @media (max-width: 560px) {
+      .modal { padding: 36px 24px; }
+    }
+    .modal-close {
+      position: absolute;
+      top: 18px; right: 18px;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, color 0.2s;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .modal-close:hover { background: var(--surface2); color: #fff; }
+    .modal-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .modal-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 8px;
+    }
+    .modal-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 16px;
+    }
+    .form-group:last-of-type { margin-bottom: 0; }
+    .form-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.3px;
+    }
+    .form-label .req { color: var(--accent); margin-left: 2px; }
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-family: 'Sora', sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input::placeholder { color: rgba(255,255,255,0.2); }
+    .form-input:focus {
+      border-color: rgba(200,65,10,0.5);
+      box-shadow: 0 0 0 3px rgba(200,65,10,0.1);
+    }
+    .form-input.error { border-color: rgba(255,80,80,0.6); }
+    .form-error-msg {
+      font-size: 11px;
+      color: rgba(255,100,100,0.9);
+      display: none;
+    }
+    .form-error-msg.show { display: block; }
+    .form-submit {
+      width: 100%;
+      margin-top: 28px;
+      padding: 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Sora', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .form-submit:hover {
+      background: var(--accent-hl);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(200,65,10,0.35);
+    }
+    .form-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .form-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 14px;
+    }
+    /* Success state */
+    .modal-success {
+      text-align: center;
+      padding: 20px 0;
+      display: none;
+    }
+    .modal-success.show { display: block; }
+    .success-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(200,65,10,0.15);
+      border: 1px solid rgba(200,65,10,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 24px;
+    }
+    .success-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 12px;
+    }
+    .success-body { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* FINAL CTA                                                   */
+    /* ─────────────────────────────────────────────────────────── */
+    #cta {
+      padding: 140px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #cta::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 100%, rgba(200,65,10,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    #cta::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 70% 80% at 50% 100%, black 20%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 100%, black 20%, transparent 80%);
+    }
+
+    .cta-inner {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .cta-h2 {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin-bottom: 24px;
+    }
+    .cta-body {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.75;
+      max-width: 540px;
+      margin: 0 auto 48px;
+    }
+    .cta-body strong { color: #fff; font-weight: 500; }
+
+    .cta-bullets {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 48px;
+      align-items: center;
+    }
+    .cta-bullet {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .cta-bullet svg { color: var(--accent); flex-shrink: 0; }
+
+    .cta-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .btn-large {
+      padding: 20px 44px;
+      font-size: 16px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-large:hover {
+      background: var(--accent-hl);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 50px rgba(200,65,10,0.45);
+    }
+    .cta-note {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* FOOTER                                                      */
+    /* ─────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-copy { font-size: 12px; color: var(--text-dim); }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* SCROLLBAR                                                   */
+    /* ─────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+
+<!-- CURSOR GLOW -->
+<div id="cursor-glow"></div>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    <img src="../assets/tsm.png" alt="Thinksphere" />
+  </a>
+  <button class="nav-cta" onclick="openModal()">Get Free Audit</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HERO                                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-inner">
+
+      <div class="label reveal">
+        <span class="label-dot"></span>
+        Generative Answer Optimization
+      </div>
+
+      <h1 class="hero-h1 reveal reveal-delay-1">
+        SEO made businesses<br>
+        millions in 2012.<br>
+        <span class="accent">Something bigger</span><br>
+        <span class="dim">just replaced it.</span>
+      </h1>
+
+      <p class="hero-sub reveal reveal-delay-2">
+        Thinksphere helps brands become what
+        <strong>ChatGPT, Claude, and Google AI</strong>
+        recommend — before your competitors figure out this exists.
+      </p>
+
+      <div class="hero-actions reveal reveal-delay-3">
+        <button class="btn-primary" onclick="openModal()">
+          Get your free AI Visibility Audit
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span class="btn-note">30-minute call. No fluff. No commitment.</span>
+      </div>
+
+      <div class="hero-ticker reveal reveal-delay-4">
+        <span class="ticker-label">We optimize for</span>
+        <div class="ticker-chips">
+          <span class="chip">ChatGPT</span>
+          <span class="chip">Claude</span>
+          <span class="chip">Perplexity</span>
+          <span class="chip">Google AI</span>
+          <span class="chip">Gemini</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PROBLEM                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="problem">
+  <div class="container">
+
+    <div class="problem-grid">
+
+      <div class="problem-left">
+        <div class="label reveal">The Shift</div>
+        <h2 class="section-h2 reveal reveal-delay-1">
+          Google isn't the<br>front door<br><span class="accent">anymore.</span>
+        </h2>
+        <div class="problem-body reveal reveal-delay-2">
+          <p>Your customer has a question. They used to open Google, scroll to page one, and click your listing.</p>
+          <p><strong>That era is ending.</strong></p>
+          <p>Now they open ChatGPT. They ask Claude. They use Perplexity. They look at Google's AI Overview. They get a direct answer — without ever visiting a website.</p>
+          <p>If your brand isn't in that answer, you don't get considered.</p>
+          <p>Not ranked lower. Not passed over.</p>
+          <p class="warning">Invisible.</p>
+        </div>
+      </div>
+
+      <div class="problem-right reveal reveal-delay-2">
+
+        <div class="label" style="margin-bottom: 20px;">The Old Journey</div>
+        <div class="journey-card old">
+          <div class="jc-icon">🔍</div>
+          <div class="jc-text">
+            <div class="jc-name">Open Google</div>
+            <div class="jc-desc">Search for answer</div>
+          </div>
+          <span class="jc-badge badge-dead">Fading</span>
+        </div>
+        <div class="journey-card old">
+          <div class="jc-icon">📄</div>
+          <div class="jc-text">
+            <div class="jc-name">Scroll to page one</div>
+            <div class="jc-desc">Click a blue link</div>
+          </div>
+          <span class="jc-badge badge-dead">Fading</span>
+        </div>
+        <div class="journey-card old">
+          <div class="jc-icon">🌐</div>
+          <div class="jc-text">
+            <div class="jc-name">Visit your website</div>
+            <div class="jc-desc">Discover your brand</div>
+          </div>
+          <span class="jc-badge badge-dead">Fading</span>
+        </div>
+
+        <div class="label" style="margin: 28px 0 16px;">The New Journey</div>
+        <div class="journey-card active">
+          <div class="jc-icon">🤖</div>
+          <div class="jc-text">
+            <div class="jc-name">Ask ChatGPT / Claude</div>
+            <div class="jc-desc">"Best [solution] for [problem]?"</div>
+          </div>
+          <span class="jc-badge badge-now">Now</span>
+        </div>
+        <div class="journey-card active">
+          <div class="jc-icon">⚡</div>
+          <div class="jc-text">
+            <div class="jc-name">AI gives a direct answer</div>
+            <div class="jc-desc">One brand gets recommended</div>
+          </div>
+          <span class="jc-badge badge-now">Now</span>
+        </div>
+
+        <div class="invisible-callout">
+          <div class="big">Invisible</div>
+          <div class="small">What your brand is to AI — right now</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- EDUCATION / GAO                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="gao">
+  <div class="container">
+
+    <div class="label reveal">What is GAO?</div>
+    <h2 class="section-h2 reveal reveal-delay-1" style="max-width: 620px; margin-bottom: 32px;">
+      This is what Generative<br>Answer Optimization is.
+    </h2>
+
+    <div class="gao-intro reveal reveal-delay-2">
+      <p>SEO was about <strong>ranking on Google.</strong> GAO is about <strong>becoming the answer AI gives.</strong></p>
+      <p>When someone types <em>"best email marketing agency for Shopify"</em> into ChatGPT — one brand gets recommended. Right now it's probably not you. GAO changes that.</p>
+      <p>We optimize your brand, your content, and your digital footprint so that when AI systems are asked about what you do — <strong>they point to you. Not your competitor.</strong></p>
+    </div>
+
+    <div class="compare-cards">
+      <div class="compare-card old-way reveal reveal-delay-2">
+        <div class="cc-tag">The old way</div>
+        <h3 class="cc-h3">SEO</h3>
+        <p class="cc-body">Rank higher on Google's list of links. Fight for position on a platform fewer people use every year.</p>
+        <div class="cc-example">"10 Best Email Marketing Agencies — Google Results"</div>
+        <div class="cc-result">→ You're link #7 of 10 million</div>
+      </div>
+      <div class="compare-card new-way reveal reveal-delay-3">
+        <div class="cc-tag">The new way</div>
+        <h3 class="cc-h3">GAO</h3>
+        <p class="cc-body">Become the answer AI gives. When someone asks, the AI recommends you by name — warm, pre-sold, already convinced.</p>
+        <div class="cc-example">"For Shopify stores, I'd recommend [Your Brand] — they specialize in exactly this."</div>
+        <div class="cc-result">→ You're the only answer</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HOW IT WORKS                                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="how">
+  <div class="container">
+
+    <div class="how-header">
+      <div class="label reveal">The Process</div>
+      <h2 class="section-h2 reveal reveal-delay-1">Three steps.<br>That's it.</h2>
+    </div>
+
+    <div class="steps-wrapper">
+      <div class="steps">
+
+        <div class="step reveal reveal-delay-1">
+          <div class="step-num">01</div>
+          <div class="step-icon">🔬</div>
+          <h3 class="step-title">AI Visibility Audit</h3>
+          <p class="step-body">We scan every major AI platform to see exactly how — or if — your brand shows up when potential customers ask relevant questions. You'll know where you stand.</p>
+          <div class="step-timeframe">Results within 48 hours</div>
+        </div>
+
+        <div class="step reveal reveal-delay-2">
+          <div class="step-num">02</div>
+          <div class="step-icon">🗺️</div>
+          <h3 class="step-title">GAO Strategy Build</h3>
+          <p class="step-body">We build your optimization roadmap. What to say, where to say it, and how to structure your presence so AI systems learn to trust and recommend your brand.</p>
+          <div class="step-timeframe">Custom to your brand</div>
+        </div>
+
+        <div class="step reveal reveal-delay-3">
+          <div class="step-num">03</div>
+          <div class="step-icon">📈</div>
+          <h3 class="step-title">Implementation + Monitoring</h3>
+          <p class="step-body">We execute the strategy and track your AI visibility score every month. As the platforms evolve, we evolve with them.</p>
+          <div class="step-timeframe">Monthly visibility reports</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- NIGHTMARE vs DREAM                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="transform">
+  <div class="container">
+
+    <div class="transform-header">
+      <div class="label reveal">The Stakes</div>
+      <h2 class="section-h2 reveal reveal-delay-1">The brands who move<br>now won't look back.</h2>
+    </div>
+
+    <div class="transform-grid">
+
+      <div class="transform-side nightmare reveal reveal-delay-1">
+        <div class="ts-label">Without GAO</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-icon">✕</div>
+            Ad costs keep rising as organic reach disappears
+          </div>
+          <div class="ts-item">
+            <div class="ts-icon">✕</div>
+            Competitors get recommended when AI is asked about your space
+          </div>
+          <div class="ts-item">
+            <div class="ts-icon">✕</div>
+            You're optimizing for a platform fewer people use every month
+          </div>
+        </div>
+      </div>
+
+      <div class="transform-side dream reveal reveal-delay-2">
+        <div class="ts-label">With GAO</div>
+        <div class="ts-items">
+          <div class="ts-item">
+            <div class="ts-icon">✓</div>
+            You're the answer AI gives when someone asks about what you do
+          </div>
+          <div class="ts-item">
+            <div class="ts-icon">✓</div>
+            New customers arrive already warmed up — AI told them you're the one
+          </div>
+          <div class="ts-item">
+            <div class="ts-icon">✓</div>
+            You own an asset your competitors can't replicate overnight
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FINAL CTA                                                   -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-inner">
+
+      <div class="label reveal" style="display: inline-flex; margin: 0 auto 28px;">Free Audit</div>
+
+      <h2 class="cta-h2 reveal reveal-delay-1">
+        Find out if AI<br>knows you exist.
+      </h2>
+
+      <p class="cta-body reveal reveal-delay-2">
+        We'll audit your AI visibility across <strong>ChatGPT, Claude, Perplexity, and Google AI</strong> — completely free. You'll see exactly what AI says about your brand (or doesn't say).
+      </p>
+
+      <div class="cta-bullets reveal reveal-delay-3">
+        <div class="cta-bullet">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          No agency jargon
+        </div>
+        <div class="cta-bullet">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          No vague strategy decks
+        </div>
+        <div class="cta-bullet">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          The truth about where you stand — and what to do next
+        </div>
+      </div>
+
+      <div class="cta-actions reveal reveal-delay-4">
+        <button class="btn-large" onclick="openModal()">
+          Book my free AI Audit
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M3.75 9h10.5M10.5 5.25L14.25 9l-3.75 3.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span class="cta-note">30 minutes. No commitment. No sales pressure.</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- BOOKING MODAL                                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--
+  SETUP: To receive form submissions to your email:
+  1. Go to https://formspree.io and create a free account
+  2. Create a new form and copy your form ID (looks like: xabcdefg)
+  3. Replace YOUR_FORM_ID in the action attribute below
+-->
+<div class="modal-overlay" id="bookingModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
+
+    <!-- Form view -->
+    <div id="modalForm">
+      <div class="modal-label">Free AI Audit</div>
+      <h2 class="modal-title" id="modalTitle">Book your free session</h2>
+      <p class="modal-sub">30 minutes. No commitment. We'll show you exactly where your brand stands in AI search — and what to do next.</p>
+
+      <form id="auditForm" action="https://formspree.io/f/mwvwbvjo" method="POST" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">First Name</label>
+            <input class="form-input" type="text" id="firstName" name="first_name" placeholder="Ruan" autocomplete="given-name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="lastName">Last Name</label>
+            <input class="form-input" type="text" id="lastName" name="last_name" placeholder="Smith" autocomplete="family-name" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="businessName">Business Name <span class="req">*</span></label>
+          <input class="form-input" type="text" id="businessName" name="business_name" placeholder="Your Company" autocomplete="organization" />
+          <span class="form-error-msg" id="businessNameError">Business name is required</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cellPhone">Cell Phone Number <span class="req">*</span></label>
+          <input class="form-input" type="tel" id="cellPhone" name="cell_phone" placeholder="+27 82 000 0000" autocomplete="tel" />
+          <span class="form-error-msg" id="cellPhoneError">Cell phone number is required</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="emailAddress">Email Address</label>
+          <input class="form-input" type="email" id="emailAddress" name="email" placeholder="you@company.com" autocomplete="email" />
+        </div>
+
+        <button class="form-submit" type="submit" id="formSubmitBtn">
+          Send my booking request
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <p class="form-note">* Required fields</p>
+      </form>
+    </div>
+
+    <!-- Success view -->
+    <div class="modal-success" id="modalSuccess">
+      <div class="success-icon">✓</div>
+      <h3 class="success-title">You're booked in!</h3>
+      <p class="success-body">We've received your request and will be in touch within 24 hours to confirm your free AI Visibility Audit. Keep an eye on your inbox.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="#" class="nav-logo" style="text-decoration: none;">
+        <img src="../assets/tsm.png" alt="Thinksphere" />
+      </a>
+      <span class="footer-copy">© 2026 Thinksphere. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+  // ── CURSOR GLOW ──────────────────────────────────────────────
+  const glow = document.getElementById('cursor-glow');
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  let cx = mx, cy = my;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX;
+    my = e.clientY;
+  });
+
+  (function animateGlow() {
+    cx += (mx - cx) * 0.08;
+    cy += (my - cy) * 0.08;
+    glow.style.left = cx + 'px';
+    glow.style.top  = cy + 'px';
+    requestAnimationFrame(animateGlow);
+  })();
+
+  // ── NAVBAR SCROLL STATE ──────────────────────────────────────
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  // ── SCROLL REVEAL ────────────────────────────────────────────
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  revealEls.forEach(el => observer.observe(el));
+
+  // Immediately reveal hero elements
+  document.querySelectorAll('#hero .reveal').forEach(el => el.classList.add('visible'));
+
+  // ── STEP HOVER GLOW ──────────────────────────────────────────
+  document.querySelectorAll('.step').forEach(step => {
+    step.addEventListener('mouseenter', function() {
+      this.style.boxShadow = '0 0 0 1px rgba(200,65,10,0.35), 0 20px 60px rgba(200,65,10,0.08)';
+    });
+    step.addEventListener('mouseleave', function() {
+      this.style.boxShadow = '';
+    });
+  });
+
+  // ── SMOOTH ANCHOR SCROLL ─────────────────────────────────────
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', function(e) {
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // ── BOOKING MODAL ─────────────────────────────────────────────
+  const modal    = document.getElementById('bookingModal');
+  const formView = document.getElementById('modalForm');
+  const successView = document.getElementById('modalSuccess');
+
+  function openModal() {
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('businessName').focus(), 350);
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // Close on overlay click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+  });
+
+  // ── FORM VALIDATION & SUBMIT ──────────────────────────────────
+  document.getElementById('auditForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const businessName = document.getElementById('businessName');
+    const cellPhone    = document.getElementById('cellPhone');
+    const businessErr  = document.getElementById('businessNameError');
+    const cellErr      = document.getElementById('cellPhoneError');
+    const submitBtn    = document.getElementById('formSubmitBtn');
+
+    // Reset errors
+    businessName.classList.remove('error');
+    cellPhone.classList.remove('error');
+    businessErr.classList.remove('show');
+    cellErr.classList.remove('show');
+
+    let valid = true;
+
+    if (!businessName.value.trim()) {
+      businessName.classList.add('error');
+      businessErr.classList.add('show');
+      valid = false;
+    }
+    if (!cellPhone.value.trim()) {
+      cellPhone.classList.add('error');
+      cellErr.classList.add('show');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    // Submit to Formspree
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch(this.action, {
+        method: 'POST',
+        body: new FormData(this),
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (res.ok) {
+        formView.style.display = 'none';
+        successView.classList.add('show');
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Try again — something went wrong';
+      }
+    } catch {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Try again — something went wrong';
+    }
+  });
+</script>
+</body>
+</html>
