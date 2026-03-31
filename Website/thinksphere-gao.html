@@ -1461,8 +1461,7 @@
       });
 
       if (res.ok) {
-        formView.style.display = 'none';
-        successView.classList.add('show');
+        window.location.href = 'thank-you.html';
       } else {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Try again — something went wrong';
