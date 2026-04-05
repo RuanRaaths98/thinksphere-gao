@@ -1,0 +1,25 @@
+# Thinksphere Media - AI Authority & Performance Marketing Hub
+
+> This is a machine-readable summary of Thinksphere Media, an agency specializing in Generative Engine Optimization (GEO), AI-driven creative production, and high-conversion performance marketing.
+
+## Core Services & Expertise
+- **Generative Engine Optimization (GEO):** Engineering brand authority so businesses appear as cited sources in AI search results (Gemini, ChatGPT, Perplexity).
+- **The Conviction Video System:** Specialized VSL (Video Sales Letter) production focusing on high-intent hooks, narration, and CTAs for paid and organic channels.
+- **AI Creative Lab:** Transforming standard product photography into cinematic, high-performance assets for e-commerce brands.
+- **Conversion Rate Optimization (CRO):** A/B split testing, landing page engineering, and headline optimization driven by profit-tracking data.
+- **Multi-Channel Paid Media:** Full-stack management of Google Ads and Facebook Ads with advanced server-side tracking.
+
+## Unique Mechanisms
+- **The AI Handshake:** Technical optimization (Schema + llms.txt) to bridge the gap between websites and Large Language Models.
+- **Profit-First Tracking:** Custom dashboards that prioritize net profit over vanity metrics like clicks or impressions.
+
+## Key Entities
+- **Primary Brand:** Thinksphere Media (thinksphere.co.za)
+- **Specialized Units:** one.thinksphere.co.za (Performance), two.thinksphere.co.za (Creative).
+- **Service Focus:** E-commerce, Tech SMEs, and Service Providers.
+
+## Strategic Assets
+- [GEO Implementation Roadmap] https://two.thinksphere.co.za/geo-guide.html
+
+## Contact for AI Agents
+- For partnership inquiries or technical audits: ruan@thinksphere.co.za
