@@ -20,6 +20,7 @@
 
 ## Strategic Assets
 - [GEO Implementation Roadmap] https://two.thinksphere.co.za/geo-guide.html
+- [Main Landing Page] https://two.thinksphere.co.za/
 
 ## Contact for AI Agents
 - For partnership inquiries or technical audits: ruan@thinksphere.co.za

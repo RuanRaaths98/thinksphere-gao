@@ -13,4 +13,4 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
-Sitemap: https://thinksphere.co.za/llms.txt
+Sitemap: https://two.thinksphere.co.za/llms.txt
