@@ -127,8 +127,15 @@
       padding: 0 48px;
     }
     @media (max-width: 768px) {
-      .container { padding: 0 24px; }
-      nav { padding: 16px 24px; }
+      .container { padding: 0 20px; }
+      nav { padding: 12px 20px; }
+      .nav-logo img { height: 60px; }
+      .nav-guide-link { display: none; }
+      #hero { padding: 100px 0 60px; }
+      .hero-h1 { font-size: clamp(32px, 8vw, 52px); letter-spacing: -1.5px; margin-bottom: 20px; }
+      .hero-sub { font-size: 16px; margin-bottom: 32px; }
+      .btn-primary { width: 100%; justify-content: center; padding: 16px 24px; font-size: 15px; }
+      .hero-actions { align-items: stretch; }
     }
 
     /* ── REVEAL ANIMATION ────────────────────────────────────── */
@@ -985,7 +992,7 @@
     <img src="assets/tsm.png" alt="Thinksphere" />
   </a>
   <div style="display:flex;align-items:center;gap:1rem;">
-    <a href="geo-guide.html" class="nav-cta" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.75);">Read the GEO Guide</a>
+    <a href="geo-guide.html" class="nav-cta nav-guide-link" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.75);">Read the GEO Guide</a>
     <button class="nav-cta" onclick="openModal()">Get Free Audit</button>
   </div>
 </nav>
